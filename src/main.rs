@@ -33,7 +33,10 @@ fn ssh_session(username: &str, password: &str) -> Result<Session> {
     Ok(session)
 }
 
-fn run_command<'b>(s: &mut Channel<'b>, cmd: &str) -> Result<(String, String)> {
+fn run_command(session: &mut Session, cmd: &str) -> Result<(String, String)> {
+    let mut s = session.channel_new()?;
+    s.open_session()?;
+
     s.request_exec(cmd.as_bytes())?;
     s.send_eof().unwrap();
 
@@ -53,14 +56,12 @@ fn behemoth0() -> Result<String> {
     // upon submitting the real password, it will open a shell
 
     let mut session = ssh_session("behemoth0", "behemoth0")?;
-    let mut s = session.channel_new()?;
-    s.open_session()?;
 
     let test_pass = "test";
     let test_cmd = format!("echo {test_pass} | ltrace /behemoth/behemoth0");
     println!("running '{test_cmd}'");
 
-    let (_, err) = run_command(&mut s, &test_cmd)?;
+    let (_, err) = run_command(&mut session, &test_cmd)?;
     let result = err.split("\n").find(|s| s.contains(test_pass)).unwrap();
     println!("{result}");
 
@@ -70,11 +71,11 @@ fn behemoth0() -> Result<String> {
     let real_cmd = format!("echo {real_pass} | /behemoth/behemoth0");
     println!("running '{real_cmd}'");
 
-    let (out, _) = run_command(&mut s, &real_cmd)?;
+    let (out, _) = run_command(&mut session, &real_cmd)?;
     println!("{out}");
 
     println!("retrieving /etc/behemoth_pass/behemoth1");
-    let (out, _) = run_command(&mut s, "cat /etc/behemoth_pass/behemoth1")?;
+    let (out, _) = run_command(&mut session, "cat /etc/behemoth_pass/behemoth1")?;
 
     println!("retrieved behemoth1 pass '{out}'");
 
