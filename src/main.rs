@@ -26,16 +26,6 @@ fn ssh_session(username: &str, password: &str) -> Result<Session> {
     Ok(session)
 }
 
-fn run_command(session: &mut Session, cmd: &str) -> Result<String> {
-    let mut channel = session.channel_session()?;
-
-    channel.exec(cmd)?;
-
-    let mut buf = String::new();
-    channel.read_to_string(&mut buf)?;
-    Ok(buf)
-}
-
 fn read_all(channel: &mut Channel) -> Result<String> {
     let mut result = Vec::new();
     let mut buf = [0u8; 1024];
@@ -58,33 +48,43 @@ fn behemoth0() -> Result<String> {
 
     let session = ssh_session("behemoth0", "behemoth0")?;
     let mut channel = session.channel_session()?;
-    channel.request_pty("xterm",None,Some((80, 24, 0, 0)))?;
+    channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
     channel.shell()?;
+
+    let mut result = String::new();
+    while !result.contains("behemoth0@gibson:~$ ") {
+        result = read_all(&mut channel)?;
+    }
 
     let test_pass = "test";
     let test_cmd = format!("echo {test_pass} | ltrace /behemoth/behemoth0 2>&1");
     println!("running '{test_cmd}'");
 
-    // let result = run_command(&mut session, &test_cmd)?;
-    // let result = result.split("\n").find(|s| s.contains(test_pass)).unwrap();
-    // println!("{result}");
-    write!(&mut channel, "{test_cmd}\n")?;
+    channel.write(format!("{test_cmd}\n").as_bytes())?;
+    channel.flush()?;
+
+    let result = read_all(&mut channel)?;
+    println!("{result}");
     let result = read_all(&mut channel)?;
     println!("{result}");
 
-    let real_pass = result.split("\"").nth(3).unwrap(); // strcmp("my_pass", "real_pass")
-    println!("real pass is '{real_pass}'");
+    // let real_pass = result.split("\"").nth(3).unwrap(); // strcmp("my_pass", "real_pass")
+    // println!("real pass is '{real_pass}'");
 
     // let real_cmd = format!("echo {real_pass} | /behemoth/behemoth0");
     // println!("running '{real_cmd}'");
-
-    // let result = run_command(&mut session, &real_cmd)?;
+    // write!(&mut channel, "{real_cmd}\n")?;
+    // let result = read_all(&mut channel)?;
     // println!("{result}");
 
     // println!("retrieving /etc/behemoth_pass/behemoth1");
-    // let result = run_command(&mut session, "id")?;
-
+    // write!(&mut channel, "cat /etc/behemoth_pass/behemoth1\n")?;
+    // let result = read_all(&mut channel)?;
     // println!("retrieved behemoth1 pass '{result}'");
+
+    channel.send_eof()?;
+    channel.wait_close()?;
+    println!("{}", channel.exit_status()?);
 
     Ok(result)
 }
