@@ -8,7 +8,8 @@ const PORT: usize = 2221;
 
 fn main() -> Result<()> {
 
-    let _pass_1 = behemoth0()?;
+    let pass_1 = behemoth0("behemoth0")?;
+    let _pass_2 = behemoth1(&pass_1)?;
 
     Ok(())
 }
@@ -54,12 +55,11 @@ fn write_line(channel: &mut Channel, line: &str) -> Result<()> {
     Ok(())
 }
 
-fn behemoth0() -> Result<String> {
+fn behemoth0(password: &str) -> Result<String> {
     // for behemoth 0, the password to the binary can be found by looking for strcmp in an ltrace
     // upon submitting the real password, it will open a shell
 
-    let session = ssh_session("behemoth0", "behemoth0")?;
-    //session.set_blocking(false);
+    let session = ssh_session("behemoth0", password)?;
 
     let mut channel = session.channel_session()?;
     channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
@@ -94,7 +94,19 @@ fn behemoth0() -> Result<String> {
 
     let result = read_until(&mut channel, "$ ")?;
     let result = result.split("\n").nth(1).unwrap().trim();
-    println!("retrieved behemoth1 pass '{result}'");
+    println!("retrieved behemoth1 pass '{result}'\n");
 
     Ok(result.to_string())
+}
+
+fn behemoth1(password: &str) -> Result<String> {
+    let session = ssh_session("behemoth1", password)?;
+
+    let mut channel = session.channel_session()?;
+    channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
+    channel.shell()?;
+
+    let _ = read_until(&mut channel, "behemoth1@gibson:~$ ");
+    
+    Ok("".into())
 }
