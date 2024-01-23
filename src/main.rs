@@ -43,8 +43,15 @@ fn read_until(channel: &mut Channel, finished_token: &str) -> Result<String> {
 
         let decoded = std::str::from_utf8(&full_buf)?;
         result += decoded;
+        //println!("{decoded}");
     }
     Ok(result)
+}
+
+fn write_line(channel: &mut Channel, line: &str) -> Result<()> {
+    channel.write(format!("{line}\n").as_bytes())?;
+    channel.flush()?;
+    Ok(())
 }
 
 fn behemoth0() -> Result<String> {
@@ -64,8 +71,7 @@ fn behemoth0() -> Result<String> {
     let test_cmd = format!("echo {test_pass} | ltrace /behemoth/behemoth0 2>&1");
     println!("running '{test_cmd}'");
 
-    channel.write(format!("{test_cmd}\n").as_bytes())?;
-    channel.flush()?;
+    write_line(&mut channel, &test_cmd)?;
 
     let result = read_until(&mut channel, "behemoth0@gibson:~$ ")?;
     let result = result.split("\n").skip(1).find(|s| s.contains(test_pass)).unwrap();
@@ -73,23 +79,22 @@ fn behemoth0() -> Result<String> {
     let real_pass = result.split("\"").nth(3).unwrap(); // strcmp("my_pass", "real_pass")
     println!("real pass is '{real_pass}'");
 
-    let real_cmd = format!("echo {real_pass} | /behemoth/behemoth0");
+    let real_cmd = "/behemoth/behemoth0";
     println!("running '{real_cmd}'");
 
-    channel.write(format!("{real_cmd}\n").as_bytes())?;
-    channel.flush()?;
+    write_line(&mut channel, &real_cmd)?;
     
-    let result = read_until(&mut channel, "$ ")?;
-    println!("{result}");
+    let _ = read_until(&mut channel, "Password: ")?;
+    write_line(&mut channel, &real_pass)?;
+
+    let _ = read_until(&mut channel, "$ ")?;
 
     println!("retrieving /etc/behemoth_pass/behemoth1");
-    channel.write(format!("cat /etc/behemoth_pass/behemoth1\n").as_bytes())?;
+    write_line(&mut channel, "cat /etc/behemoth_pass/behemoth1")?;
+
     let result = read_until(&mut channel, "$ ")?;
+    let result = result.split("\n").nth(1).unwrap().trim();
     println!("retrieved behemoth1 pass '{result}'");
 
-    channel.send_eof()?;
-    channel.wait_close()?;
-    println!("{}", channel.exit_status()?);
-
-    Ok(result)
+    Ok(result.to_string())
 }
