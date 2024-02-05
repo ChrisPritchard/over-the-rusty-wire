@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.79"
+hex = "0.4.3"
 ssh2 = "0.9.4"
