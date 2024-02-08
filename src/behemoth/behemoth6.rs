@@ -20,12 +20,12 @@ pub fn solve(password: &str) -> Result<String> {
     println!("creating input files (flag and shellcode)");
     write_line(&mut channel, "echo -n HelloKitty > flag.txt")?;
     read_until(&mut channel, "$ ")?;
-    let shellcode = hex::decode(super::READ_FILE_SHELLCODE)?;
+    let shellcode = hex_decode(super::READ_FILE_SHELLCODE)?;
     write_line(
         &mut channel,
         &format!(
             "echo -en \"{}flag.txt\" > shellcode.txt",
-            hex_literal(&shellcode)
+            hex_encode(&shellcode)
         ),
     )?;
     read_until(&mut channel, "$ ")?;
