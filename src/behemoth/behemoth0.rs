@@ -1,10 +1,9 @@
-use anyhow::Result;
 use crate::util::*;
+use anyhow::Result;
 
 /// for behemoth 0, the password to the binary can be found by looking for strcmp in an ltrace
 /// upon submitting the real password, it will open a shell
 pub fn solve(password: &str) -> Result<String> {
-
     let session = ssh_session(super::HOST, super::PORT, "behemoth0", password)?;
 
     let mut channel = session.channel_session()?;
@@ -19,7 +18,11 @@ pub fn solve(password: &str) -> Result<String> {
     write_line(&mut channel, &test_cmd)?;
 
     let result = read_until(&mut channel, "behemoth0@gibson:~$ ")?;
-    let result = result.split("\n").skip(1).find(|s| s.contains(test_pass)).unwrap();
+    let result = result
+        .split("\n")
+        .skip(1)
+        .find(|s| s.contains(test_pass))
+        .unwrap();
     println!("{result}");
 
     let real_pass = result.split("\"").nth(3).unwrap(); // strcmp("my_pass", "real_pass")
@@ -28,7 +31,7 @@ pub fn solve(password: &str) -> Result<String> {
     let real_cmd = "/behemoth/behemoth0";
     println!("running '{real_cmd}' to spawn suid shell");
     write_line(&mut channel, &real_cmd)?;
-    
+
     read_until(&mut channel, "Password: ")?;
     write_line(&mut channel, &real_pass)?;
     read_until(&mut channel, "$ ")?;

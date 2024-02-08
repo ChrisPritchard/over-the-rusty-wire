@@ -1,7 +1,7 @@
 use anyhow::Result;
 
-mod util;
 mod behemoth;
+mod util;
 
 fn main() -> Result<()> {
     behemoth::solve_all()?;

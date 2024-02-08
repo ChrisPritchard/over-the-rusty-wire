@@ -1,7 +1,10 @@
-use std::{io::{Read, Write}, net::TcpStream};
+use std::{
+    io::{Read, Write},
+    net::TcpStream,
+};
 
-use ssh2::*;
 use anyhow::Result;
+use ssh2::*;
 
 pub fn ssh_session(host: &str, port: u16, username: &str, password: &str) -> Result<Session> {
     println!("connecting to server with username '{username}' and password '{password}'");
@@ -26,7 +29,6 @@ pub fn read_until(channel: &mut Channel, finished_token: &str) -> Result<String>
     let mut result = String::new();
     let token_hex = hex::encode(finished_token);
     while !result.contains(&token_hex) {
-
         let mut full_buf = Vec::new();
         let mut buf = [0u8; 1024];
 
@@ -57,4 +59,16 @@ pub fn hex_literal(bytes: &[u8]) -> String {
         encoded += &format!("\\x{:02x?}", b);
     }
     encoded
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hex_literal;
+
+    #[test]
+    fn hex_literal_can_convert() {
+        let bytes: Vec<u8> = vec![0xde, 0xad, 0xbe, 0xef, 0x12, 0x34, 0x56];
+        let encoded = hex_literal(&bytes);
+        assert_eq!(encoded, "\\xde\\xad\\xbe\\xef\\x12\\x34\\x56");
+    }
 }
