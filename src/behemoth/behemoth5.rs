@@ -5,25 +5,24 @@ use anyhow::Result;
 /// creates a udp socket to localhost 1337, and sends the password through before closing.
 /// to get it, we only need to listen there with nc.
 pub fn solve(password: &str) -> Result<String> {
-    let session = ssh_session(super::HOST, super::PORT, "behemoth5", password)?;
-    let mut channel = session.channel_session()?;
-    create_shell(&mut channel)?;
-    read_until(&mut channel, "$ ")?;
+    
+    let mut ssh = SSHShell::connect(super::HOST, super::PORT, "behemoth5", password)?;
+    ssh.read_until("$ ")?;
 
     println!("creating a tmp folder and moving to it");
-    write_line(&mut channel, "cd $(mktemp -d)")?;
-    read_until(&mut channel, "$ ")?;
+    ssh.write_line("cd $(mktemp -d)")?;
+    ssh.read_until("$ ")?;
 
     println!("starting a nc UDP listener");
-    write_line(&mut channel, "nc -lu localhost 1337 > out.txt &")?;
-    read_until(&mut channel, "$ ")?;
+    ssh.write_line("nc -lu localhost 1337 > out.txt &")?;
+    ssh.read_until("$ ")?;
 
     println!("running target");
-    write_line(&mut channel, "/behemoth/behemoth5")?;
-    read_until(&mut channel, "$ ")?;
+    ssh.write_line("/behemoth/behemoth5")?;
+    ssh.read_until("$ ")?;
 
-    write_line(&mut channel, "cat out.txt")?;
-    let result = read_until(&mut channel, "$ ")?;
+    ssh.write_line("cat out.txt")?;
+    let result = ssh.read_until("$ ")?;
     let result = result
         .split(['\r', '\n'])
         .map(|s| s.trim())

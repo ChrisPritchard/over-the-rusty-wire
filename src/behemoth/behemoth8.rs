@@ -3,15 +3,13 @@ use anyhow::Result;
 
 /// final level, no challenge here :)
 pub fn solve(password: &str) -> Result<()> {
-    let session = ssh_session(super::HOST, super::PORT, "behemoth8", password)?;
-    let mut channel = session.channel_session()?;
-    create_shell(&mut channel)?;
-
-    read_until(&mut channel, "$ ")?;
+    
+    let mut ssh = SSHShell::connect(super::HOST, super::PORT, "behemoth8", password)?;
+    ssh.read_until("$ ")?;
 
     println!("reading final message:");
-    write_line(&mut channel, "cat CONGRATULATIONS")?;
-    let result = read_until(&mut channel, "$ ")?;
+    ssh.write_line("cat CONGRATULATIONS")?;
+    let result = ssh.read_until("$ ")?;
     println!("{result}");
 
     Ok(())

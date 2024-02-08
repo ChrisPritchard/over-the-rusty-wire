@@ -6,51 +6,58 @@ use std::{
 use anyhow::Result;
 use ssh2::*;
 
-pub fn ssh_session(host: &str, port: u16, username: &str, password: &str) -> Result<Session> {
-    println!("connecting to server with username '{username}' and password '{password}'");
-
-    let tcp = TcpStream::connect(format!("{host}:{port}"))?;
-    let mut session = Session::new()?;
-    session.set_tcp_stream(tcp);
-    session.handshake()?;
-
-    session.userauth_password(username, password)?;
-    println!("connected successfully");
-    Ok(session)
+pub struct SSHShell {
+    channel: Channel,
 }
 
-pub fn create_shell(channel: &mut Channel) -> Result<()> {
-    channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
-    channel.shell()?;
-    Ok(())
-}
+impl SSHShell {
+    pub fn connect(host: &str, port: u16, username: &str, password: &str) -> Result<Self> {
+        println!("connecting to server with username '{username}' and password '{password}'");
 
-pub fn read_until(channel: &mut Channel, finished_token: &str) -> Result<String> {
-    let mut result = String::new();
-    let token_hex = hex_encode(finished_token.as_bytes());
-    while !result.contains(&token_hex) {
-        let mut full_buf = Vec::new();
-        let mut buf = [0u8; 1024];
+        let tcp = TcpStream::connect(format!("{host}:{port}"))?;
+        let mut session = Session::new()?;
+        session.set_tcp_stream(tcp);
+        session.handshake()?;
 
-        loop {
-            let amount_read = channel.read(&mut buf)?;
-            full_buf.extend_from_slice(&buf[0..amount_read]);
-            if amount_read < buf.len() {
-                break;
-            }
-        }
+        session.userauth_password(username, password)?;
+        println!("connected successfully");
 
-        result += &hex_encode(&full_buf);
+        let mut channel = session.channel_session()?;
+        channel.request_pty("xterm", None, Some((80, 24, 0, 0)))?;
+        channel.shell()?;
+
+        Ok(Self {
+            channel
+        })
     }
-    let raw = hex_decode(&result).unwrap();
-    let decoded = String::from_utf8_lossy(&raw);
-    Ok(decoded.into())
-}
 
-pub fn write_line(channel: &mut Channel, line: &str) -> Result<()> {
-    channel.write(format!("{line}\n").as_bytes())?;
-    channel.flush()?;
-    Ok(())
+    pub fn read_until(&mut self, finished_token: &str) -> Result<String> {
+        let mut result = String::new();
+        let token_hex = hex_encode(finished_token.as_bytes());
+        while !result.contains(&token_hex) {
+            let mut full_buf = Vec::new();
+            let mut buf = [0u8; 1024];
+    
+            loop {
+                let amount_read = self.channel.read(&mut buf)?;
+                full_buf.extend_from_slice(&buf[0..amount_read]);
+                if amount_read < buf.len() {
+                    break;
+                }
+            }
+    
+            result += &hex_encode(&full_buf);
+        }
+        let raw = hex_decode(&result).unwrap();
+        let decoded = String::from_utf8_lossy(&raw);
+        Ok(decoded.into())
+    }
+
+    pub fn write_line(&mut self, line: &str) -> Result<()> {
+        self.channel.write(format!("{line}\n").as_bytes())?;
+        self.channel.flush()?;
+        Ok(())
+    }
 }
 
 pub fn hex_encode(bytes: &[u8]) -> String {
