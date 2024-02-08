@@ -1,10 +1,10 @@
 use anyhow::Result;
 use crate::util::*;
 
+/// behemoth7 was like behemoth1 (at least, my solution was very similar)
+/// differences were the length was 528 to the ret address, and nothing in that buffer could be non-alphanumeric
+/// the ret address itself and the stack after it could be whatever though, so just moved things about a bit
 pub fn solve(password: &str) -> Result<String> {
-    // behemoth7 was like behemoth1 (at least, my solution was very similar)
-    // differences were the length was 528 to the ret address, and nothing in that buffer could be non-alphanumeric
-    // the ret address itself and the stack after it could be whatever though, so just moved things about a bit
     
     let session = ssh_session(super::HOST, super::PORT, "behemoth7", password)?;
     let mut channel = session.channel_session()?;

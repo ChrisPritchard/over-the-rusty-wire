@@ -1,26 +1,26 @@
 use anyhow::Result;
 use crate::util::*;
 
+/// behemoth4 attempts to read a file in tmp with the name of its pid
+/// the code from ghidra is a bit like:
+///   _Var1 = getpid();
+///   sprintf(local_28,"/tmp/%d",_Var1);
+///   __stream = fopen(local_28,"r");
+///   if (__stream == (FILE *)0x0) {
+///       puts("PID not found!");
+///   }
+///   else {
+///       sleep(1);
+///       puts("Finished sleeping, fgetcing");
+///       while( true ) {
+///       __c = fgetc(__stream);
+///       if (__c == -1) break;
+///       putchar(__c);
+///       }
+///       fclose(__stream);
+///   }
+/// technique is to start the process, get its pid, and in parellel create a link to the next password file to be read
 pub fn solve(password: &str) -> Result<String> {
-    // behemoth4 attempts to read a file in tmp with the name of its pid
-    // the code from ghidra is a bit like:
-    //   _Var1 = getpid();
-    //   sprintf(local_28,"/tmp/%d",_Var1);
-    //   __stream = fopen(local_28,"r");
-    //   if (__stream == (FILE *)0x0) {
-    //       puts("PID not found!");
-    //   }
-    //   else {
-    //       sleep(1);
-    //       puts("Finished sleeping, fgetcing");
-    //       while( true ) {
-    //       __c = fgetc(__stream);
-    //       if (__c == -1) break;
-    //       putchar(__c);
-    //       }
-    //       fclose(__stream);
-    //   }
-    // technique is to start the process, get its pid, and in parellel create a link to the next password file to be read
     
     let session = ssh_session(super::HOST, super::PORT, "behemoth4", password)?;
     let mut channel = session.channel_session()?;

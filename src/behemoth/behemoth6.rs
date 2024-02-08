@@ -1,12 +1,12 @@
 use anyhow::Result;
 use crate::util::*;
 
+/// behemoth6 runs behemoth6_reader, and if that process returns 'HelloKitty' then behemoth6 will open a suid shell
+/// behemoth6_reader, in turn, opens shellcode.txt and will mem map and then run its contents.
+/// so the solution is to create some shellcode that will return that required text.
+/// two further restrictions: shellcode cannot contain 0xb and must be shorter than 4095 bytes - both easily avoidable.
+/// we can re-use reading shell code used in earlier challenges
 pub fn solve(password: &str) -> Result<String> {
-    // behemoth6 runs behemoth6_reader, and if that process returns 'HelloKitty' then behemoth6 will open a suid shell
-    // behemoth6_reader, in turn, opens shellcode.txt and will mem map and then run its contents.
-    // so the solution is to create some shellcode that will return that required text.
-    // two further restrictions: shellcode cannot contain 0xb and must be shorter than 4095 bytes - both easily avoidable.
-    // we can re-use reading shell code used in earlier challenges
     
     let session = ssh_session(super::HOST, super::PORT, "behemoth6", password)?;
     let mut channel = session.channel_session()?;

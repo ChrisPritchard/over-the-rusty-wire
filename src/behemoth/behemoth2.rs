@@ -1,9 +1,9 @@
 use anyhow::Result;
 use crate::util::*;
 
+/// behemoth2 calls 'touch' unqualified to create a file with the name of its PID. it then waits two seconds before executing the file's contents
+/// while this could be exploited by perhaps writing some command into the file (once the pid is determined), it is simpler to hijack touch via path injection
 pub fn solve(password: &str) -> Result<String> {
-    // behemoth2 calls 'touch' unqualified to create a file with the name of its PID. it then waits two seconds before executing the file's contents
-    // while this could be exploited by perhaps writing some command into the file (once the pid is determined), it is simpler to hijack touch via path injection
 
     let session = ssh_session(super::HOST, super::PORT, "behemoth2", password)?;
 

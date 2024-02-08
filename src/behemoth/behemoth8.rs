@@ -1,8 +1,8 @@
 use anyhow::Result;
 use crate::util::*;
 
+/// final level, no challenge here :)
 pub fn solve(password: &str) -> Result<()> {
-    // final level, no challenge here :)
     
     let session = ssh_session(super::HOST, super::PORT, "behemoth8", password)?;
     let mut channel = session.channel_session()?;

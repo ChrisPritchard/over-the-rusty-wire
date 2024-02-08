@@ -1,10 +1,10 @@
 use anyhow::Result;
 use crate::util::*;
 
+/// the code for behemoth5 is a bit messy in ghidra, but basically it opens the pass file,
+/// creates a udp socket to localhost 1337, and sends the password through before closing.
+/// to get it, we only need to listen there with nc.
 pub fn solve(password: &str) -> Result<String> {
-    // the code for behemoth5 is a bit messy in ghidra, but basically it opens the pass file,
-    // creates a udp socket to localhost 1337, and sends the password through before closing.
-    // to get it, we only need to listen there with nc.
 
     let session = ssh_session(super::HOST, super::PORT, "behemoth5", password)?;
     let mut channel = session.channel_session()?;

@@ -1,9 +1,9 @@
 use anyhow::Result;
 use crate::util::*;
 
+/// for behemoth 0, the password to the binary can be found by looking for strcmp in an ltrace
+/// upon submitting the real password, it will open a shell
 pub fn solve(password: &str) -> Result<String> {
-    // for behemoth 0, the password to the binary can be found by looking for strcmp in an ltrace
-    // upon submitting the real password, it will open a shell
 
     let session = ssh_session(super::HOST, super::PORT, "behemoth0", password)?;
 
